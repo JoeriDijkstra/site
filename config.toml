@@ -1,0 +1,24 @@
+baseURL = 'http://example.org/'
+languageCode = 'en-us'
+title = 'Joeri Dijkstra'
+theme = 'etch'
+
+[params]
+    dark = "off"
+    copyright = "Copyright © 2023 Joeri Dijkstra"
+    description = "Personal website"
+
+[menu]
+  [[menu.main]]
+    identifier = "posts"
+    name = "posts"
+    title = "posts"
+    url = "/"
+    weight = 10
+
+  [[menu.main]]
+    identifier = "about"
+    name = "about"
+    title = "about"
+    url = "/about/"
+    weight = 20
