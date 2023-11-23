@@ -8,3 +8,4 @@ Game development like it is 1980! In this mini series we will build the famous g
 
 Parts:
 - [1. Scoping the game]({{< ref "/breakout/part1" >}} "Part 1: Scoping the game")
+- [2. Creating the makefile]({{< ref "/breakout/part2" >}} "Part 2: Creating the makefile")
