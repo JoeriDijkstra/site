@@ -22,3 +22,10 @@ theme = 'etch'
     title = "about"
     url = "/about/"
     weight = 20
+
+  [[menu.main]]
+    identifier = "projects"
+    name = "projects"
+    title = "projects"
+    url = "/projects/"
+    weight = 20
