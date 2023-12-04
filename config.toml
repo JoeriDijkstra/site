@@ -1,4 +1,4 @@
-baseURL = 'http://example.org/'
+baseURL = 'http://joeridijkstra.dev/'
 languageCode = 'en-us'
 title = 'Joeri Dijkstra'
 theme = 'etch'
