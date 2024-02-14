@@ -57,6 +57,6 @@ end
 This uploader takes the image, converts it into a smaller limit, dependent on what needs to happen. I have some default compression on all images, and special compression to thumbnails, which can be much smaller. This has saved me about 95% storage space on a 2mb pexels image, resulting in only a 100kb file. The nice thing about `Mogrify` is the flexibility that comes with it, this fills up an image until either axis hits the desired target, but keeps the ratio. Perfect for a social media for example. 
 
 # Further reading:
+- [Phoenix with Digital Ocean spaces]({{< ref "/posts/phoenix-with-do-spaces" >}} "Phoenix with Digital Ocean spaces")
 - https://hexdocs.pm/mogrify/
 - https://imagemagick.org/index.php
-- [Phoenix with Digital Ocean spaces]({{< ref "/posts/phoenix-with-do-spaces" >}} "About Us")
