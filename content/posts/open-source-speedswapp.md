@@ -20,4 +20,5 @@ These reasons mean I am, for the time being, no longer actively developing speed
 # Conclusion
 All the above reasons and explanation culminates in me open-sourcing speedswapp as-is, for people to learn Phoenix and Elixir from. Now some expected features have not yet been implemented since I did not envision them being part of the MVP, like comments, likes and infinite loading, so feel free to create an MR to help people learn Phoenix in a real project. 
 
-I will post a github link as soon as I removed all sensitive information.
+[Check it out on Github!
+](https://github.com/JoeriDijkstra/speedswapp)
