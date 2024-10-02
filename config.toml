@@ -4,21 +4,21 @@ title = 'Joeri Dijkstra'
 theme = 'etch'
 
 [params]
-    dark = "off"
-    copyright = "Copyright © 2023 Joeri Dijkstra"
-    description = "Personal website"
+dark = "off"
+copyright = "Copyright © 2024 Joeri Dijkstra"
+description = "Personal website"
 
-[menu]  
-  [[menu.main]]
-    identifier = "about"
-    name = "about"
-    title = "about"
-    url = "/about/"
-    weight = 20
+[menu]
+[[menu.main]]
+identifier = "about"
+name = "about"
+title = "about"
+url = "/about/"
+weight = 20
 
-  [[menu.main]]
-    identifier = "projects"
-    name = "projects"
-    title = "projects"
-    url = "/projects/"
-    weight = 20
+[[menu.main]]
+identifier = "projects"
+name = "projects"
+title = "projects"
+url = "/projects/"
+weight = 20

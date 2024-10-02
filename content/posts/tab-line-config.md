@@ -11,7 +11,7 @@ Put simply, the `tab-line-mode` allows you to switch your buffer within a window
 
 # Configuring the tab-line to automatically start
 The command `global-tab-line` toggles the `tab-line` on every buffer you have open or will open. So we want to call this command to the config:
-```elisp
+```
 (global-tab-line-mode t)
 (setq tab-line-new-button-show nil)  ;; do not show add-new button
 (setq tab-line-close-button-show nil)  ;; do not show close button
@@ -22,7 +22,7 @@ I prefer not having the buttons, since we automatically add new tabs when we ope
 # Styling the tab-line
 We can style the tab in the config using the `set-face-attribute` command in the config. You can read more about face attributes [here](https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html). I am going to style it like the Monokai pro theme which I personally use. Here is a sample:
 
-```elisp
+```
 (set-face-attribute 'tab-line nil ;; background behind tabs
       :background "#1e1e1e"
       :foreground "gray60" :distant-foreground "gray50"

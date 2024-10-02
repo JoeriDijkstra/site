@@ -1,11 +1,10 @@
 ---
 title: "About"
-date: 2023-10-03T15:18:53+02:00
 draft: false
 ---
 
-Hi, I'm Joeri Dijkstra, an avid supporter of Linux and teaching programming. Personally I program mostly in Elixir and have worked on multiple high-profile projects.
+Welcome to my personal website. This site has been made with the specific purpose to share anything I find interesting in the world. This site was never created with any financial incentive in mind, and I don't expect anyone to actually ever read this. I use it as a tool to organize my own mind and to learn more about specific subjects.
 
-The goal of this website is for me to share my knowledge and things that I find interesting in the world. This does not necessarily have to be computer programming or hardware design / repair, but it most likely will mostly be that. I also never intended this site to actually be read by anyone, and I use it as a tool to organize my own mind and to learn more about specific subjects
+### Contact
 
-If you are interested in publishing together or hiring me for a specific project, please send me an email on joeri_dijkstra@outlook.com. For projects my regular pricing is $80.00 an hour, but I will only partake if I think a project is actually interesting.
+If you'd like to contact me you can contact me via email: joeri_dijkstra@outlook.com

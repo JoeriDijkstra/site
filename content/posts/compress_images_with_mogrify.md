@@ -8,22 +8,22 @@ Images can be tough to manage, and should often be uploaded unto expensive serve
 
 # Installing the dependency
 Add the following to your `mix.exs` file:
-```elixir
+```
 {:mogrify, "~> 0.9.3"}
 ```
 Then make sure you have imagemagick installed, since the package depends on it, this can be done by executing the following command:
-```bash
+```
 sudo apt get install imagemagick
 ```
 If you want to install it into a docker image you plan on deploying on kubernetes for instance, you can always add the following to your docker file:
 
-```yaml
+```
 RUN apt-get update -y && apt-get install -y imagemagick
 ```
 
 # Using the dependency
-With that out of the way, I'll show you how I implemented it into my `Uploader.ex` module which sends the file to an S3 compatible asset store: 
-```elixir
+With that out of the way, I'll show you how I implemented it into my `Uploader.ex` module which sends the file to an S3 compatible asset store:
+```
 defmodule Uploader do
   @moduledoc false
 
@@ -54,7 +54,7 @@ defmodule Uploader do
 end
 ```
 
-This uploader takes the image, converts it into a smaller limit, dependent on what needs to happen. I have some default compression on all images, and special compression to thumbnails, which can be much smaller. This has saved me about 95% storage space on a 2mb pexels image, resulting in only a 100kb file. The nice thing about `Mogrify` is the flexibility that comes with it, this fills up an image until either axis hits the desired target, but keeps the ratio. Perfect for a social media for example. 
+This uploader takes the image, converts it into a smaller limit, dependent on what needs to happen. I have some default compression on all images, and special compression to thumbnails, which can be much smaller. This has saved me about 95% storage space on a 2mb pexels image, resulting in only a 100kb file. The nice thing about `Mogrify` is the flexibility that comes with it, this fills up an image until either axis hits the desired target, but keeps the ratio. Perfect for a social media for example.
 
 # Further reading:
 - [Phoenix with Digital Ocean spaces]({{< ref "/posts/phoenix-with-do-spaces" >}} "Phoenix with Digital Ocean spaces")
