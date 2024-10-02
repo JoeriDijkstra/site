@@ -1,6 +1,6 @@
 baseURL = 'http://joeridijkstra.dev/'
 languageCode = 'en-us'
-title = 'Joeri Dijkstra'
+title = 'Nordbit'
 theme = 'etch'
 
 [params]
