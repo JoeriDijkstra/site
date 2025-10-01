@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Personal website">
+    
+    <link rel="shortcut icon" href="http://localhost:1313/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <link rel="canonical" href="http://localhost:1313/posts/dragonhoard-release-1-2-4/" />
+    <title>Dragonhoard Release</title>
+</head>
+<body><header id="banner">
+    <h2><a href="http://localhost:1313/">Joeri Dijkstra</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/about/" title="about">about</a>
+            </li><li>
+                <a href="/projects/" title="projects">projects</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>Dragonhoard Release</h1>
+        <div>
+                <time>October 2, 2024</time>
+            </div>
+    </header><p>Dragonhoard just had an exciting new update, version 1.2.4 released today. The main selling point of the release is that it now supports mobile and adds PWA support. In this blog post I&rsquo;ll share a little bit of my experience creating Dragonhoard.</p>
+<h2 id="coming-up-with-the-premise">Coming up with the premise</h2>
+<p>The premise of Dragonhoard is simple, an anarchic inventory management system where everyone has equal rights. Every item has an owner which can be transfered and a holder which is currently in posession of the item. I came up with the premise in a Dungeons and Dragons session, we have a group all with their own campaigns and sometimes we do oneshots.</p>
+<p>To be more cost effective we share a lot of resources like minis, mats and terrain. To manage this properly I created dragonhoard, since here we can request items from the holder to bring it back or give it to someone else. Of course this can be used for any kind of item.</p>
+<h2 id="the-tech-stack">The tech stack</h2>
+<p>Dragonhoard was built in Elixir with Phoenix liveview. The source code is available in Github and available to everyone. It is then hosted on Fly.io, and you could run your own instance if you want.</p>
+<h2 id="making-a-pwa">Making a PWA</h2>
+<p>Making a PWA from a Phoenix Liveview application is relatively easy, all you need to do is create the manifest.json file detailed in many other blogs, let&rsquo;s focus on Phoenix Liveview for now. The most important thing is to put the manifest.json in your assets folder, and then add it as a static path.</p>
+<p>Open up the file <code>lib/your_app_web.ex</code>, the web file, and add the manifest.json to the static paths, like so:</p>
+<pre tabindex="0"><code>def static_paths, do: ~w(assets fonts images favicon.ico robots.txt manifest.json)
+</code></pre><p>And there you go, your manifest is now static and is loaded in for your web application, but don&rsquo;t forget to add it as a link in the <code>root.html.heex</code> file in the head, like this:</p>
+<pre tabindex="0"><code>&lt;link phx-track-static rel=&#34;manifest&#34; href=&#34;/manifest.json&#34; /&gt;
+</code></pre><p>And there you have it, a loaded manifest in your Phoenix Liveview application, which just made sure the app is loaded as a PWA.</p>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2025 Joeri Dijkstra
+</footer>
+</body>
+</html>

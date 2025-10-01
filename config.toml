@@ -5,7 +5,7 @@ theme = 'etch'
 
 [params]
 dark = "off"
-copyright = "Copyright © 2024 Joeri Dijkstra"
+copyright = "Copyright © 2025 Joeri Dijkstra"
 description = "Personal website"
 
 [menu]

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Personal website">
+    
+    <link rel="shortcut icon" href="http://localhost:1313/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <link rel="canonical" href="http://localhost:1313/posts/libcluster-quantum/" />
+    <title>Starting Quantum job from multiple k8s nodes</title>
+</head>
+<body><header id="banner">
+    <h2><a href="http://localhost:1313/">Joeri Dijkstra</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/about/" title="about">about</a>
+            </li><li>
+                <a href="/projects/" title="projects">projects</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>Starting Quantum job from multiple k8s nodes</h1>
+        <div>
+                <time>February 15, 2025</time>
+            </div>
+    </header><p>Quantum is an amazing elixir package for starting scheduled jobs in a genserver. I would recommend checking it out <a href="https://github.com/h4cc/quantum-elixir">here</a>, it has been a great help in many projects.</p>
+<h2 id="the-issue">The issue</h2>
+<p>There is one problem though, and that is when using multiple pods of a service running quantum, executing the jobs multiple times as well. This is something you would probably want to prevent. The global mode has been deprecated in version 3.0.0, with the reason being:</p>
+<blockquote>
+<p>(&hellip;) the implementation wasn’t great and was causing us a lot of trouble with unexpected behavior.</p></blockquote>
+<h2 id="the-solution">The solution</h2>
+<p>So how would you fix this? Well the way we have decided to do it is to use libcluster as well. So start by adding Quantum and Libcluster to you <code>mix.exs</code>:</p>
+<pre tabindex="0"><code>{:quantum, &#34;~&gt; 3.0&#34;},
+{:libcluster, &#34;~&gt; 3.0&#34;}
+</code></pre><h2 id="setting-up-libcluster">Setting up libcluster</h2>
+<p>Now what libcluster allows you to do is manage your Kubernetes nodes from Erlang. Essentially what we are going to do is register a headless template which will help k8s to find your pods by using DNS lookups. A config might look like this:</p>
+<pre tabindex="0"><code># Clustering config
+if is_binary(System.get_env(&#34;KUBERNETES_SERVICE_HOST&#34;)) do
+  config :your_app,
+    libcluster: [
+      kubernetes: [
+        strategy: Elixir.Cluster.Strategy.Kubernetes.DNS,
+        config: [
+          service: &#34;your-app-headless&#34;,
+          application_name: &#34;your-app&#34;,
+          polling_interval: 10_000
+        ]
+      ]
+    ]
+end
+</code></pre><p>where we can see we use a headless service again to discover all our pods through our DNS server. This will help us when we register our supervisor. Create a new supervisor module called SchedulerSupervisor and add the following to it:</p>
+<pre tabindex="0"><code>@moduledoc &#34;&#34;&#34;
+Responsible for starting the scheduled job on a single node
+&#34;&#34;&#34;
+
+use Supervisor
+
+def start_link(quantum, opts) do
+    case :global.whereis_name(__MODULE__) do
+      :undefined -&gt;
+        with {:error, {:already_started, pid}} &lt;- do_start_link(quantum, opts) do
+          Process.link(pid)
+          {:ok, pid}
+        end
+
+      pid -&gt;
+        Process.link(pid)
+        {:ok, pid}
+    end
+  end
+
+  defp do_start_link(quantum, opts) do
+    Supervisor.start_link(__MODULE__, {quantum, opts}, name: {:global, __MODULE__})
+  end
+
+  def init(state) do
+    :global.re_register_name(__MODULE__, self(), &amp;resolve_global_conflict/3)
+    Quantum.Supervisor.init(state)
+  end
+
+  defp resolve_global_conflict(_name, pid_to_keep, pid_to_kill) do
+    Supervisor.stop(pid_to_kill)
+    pid_to_keep
+  end
+</code></pre><p>this will ensure our supervisor is started only once across all zones. When we init we use the <code>re_register_name</code> erlang function (<a href="https://www.erlang.org/docs/21/man/global#re_register_name-3">Documentation</a>) and we pass in a function to resolve when it is already registered. This function is our <code>resolve_global_conflict</code> function which kills the duplicate supervisor and keeps the current one alive, and passes the process id back so we can use and link it.</p>
+<h2 id="integrating-quantum">Integrating Quantum</h2>
+<p>The last thing we need to do is add Quantum into the <code>mix</code> (get it?) by creating a new scheduler module. This could look something like this:</p>
+<pre tabindex="0"><code>defmodule Scheduler do
+  @moduledoc false
+  // the supervisor module is the module we created above
+  use Quantum, otp_app: :your_app, supervisor_module: SchedulerSupervisor 
+end
+</code></pre><p>as you can see here we can define a supervisor_module option in our macro which will be used by the <code>start_link</code> function for the Quantum job, usually this is a default quantum supervisor. This can also be passed in the <code>application.ex</code> of your app but this is a much neater solution in my opinion.</p>
+<h2 id="adding-it-to-the-application-on-start">Adding it to the application on start</h2>
+<p>And let&rsquo;s not forget to add it to the <code>application.ex</code> under your children:</p>
+<pre tabindex="0"><code>@impl true
+def start(_type, _args) do
+  children = supervisor_libcluster() ++ [Scheduler]
+
+  opts = [strategy: :one_for_one]
+  Supervisor.start_link(children, opts)
+end
+
+defp supervisor_libcluster do
+  config = Application.get_env(:your_app, :libcluster)
+
+  if config do
+    [{Cluster.Supervisor, [config, [name: ClusterSupervisor]]}]
+  else
+    []
+  end
+end
+</code></pre><p>And there we have it! Now the job only runs once even tough we have multiple pods running!</p>
+<h2 id="further-reading">Further reading:</h2>
+<ul>
+<li><a href="https://hexdocs.pm/libcluster/Cluster.Strategy.Kubernetes.DNS.html">https://hexdocs.pm/libcluster/Cluster.Strategy.Kubernetes.DNS.html</a></li>
+<li><a href="https://elixirforum.com/t/running-quantum-job-from-single-node/33611">https://elixirforum.com/t/running-quantum-job-from-single-node/33611</a></li>
+<li><a href="https://hexdocs.pm/quantum/run-strategies.html">https://hexdocs.pm/quantum/run-strategies.html</a></li>
+<li><a href="https://github.com/h4cc/quantum-elixir">https://github.com/h4cc/quantum-elixir</a></li>
+<li><a href="https://github.com/bitwalker/libcluster">https://github.com/bitwalker/libcluster</a></li>
+</ul>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2025 Joeri Dijkstra
+</footer>
+</body>
+</html>

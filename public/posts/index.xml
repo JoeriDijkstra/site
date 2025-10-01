@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on Joeri Dijkstra</title>
+    <link>http://localhost:1313/posts/</link>
+    <description>Recent content in Posts on Joeri Dijkstra</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sat, 15 Feb 2025 12:57:10 +0100</lastBuildDate>
+    
+	<atom:link href="http://localhost:1313/posts/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    
+    <item>
+      <title>Starting Quantum job from multiple k8s nodes</title>
+      <link>http://localhost:1313/posts/libcluster-quantum/</link>
+      <pubDate>Sat, 15 Feb 2025 12:57:10 +0100</pubDate>
+      
+      <guid>http://localhost:1313/posts/libcluster-quantum/</guid>
+      <description>&lt;p&gt;Quantum is an amazing elixir package for starting scheduled jobs in a genserver. I would recommend checking it out &lt;a href=&#34;https://github.com/h4cc/quantum-elixir&#34;&gt;here&lt;/a&gt;, it has been a great help in many projects.&lt;/p&gt;
+&lt;h2 id=&#34;the-issue&#34;&gt;The issue&lt;/h2&gt;
+&lt;p&gt;There is one problem though, and that is when using multiple pods of a service running quantum, executing the jobs multiple times as well. This is something you would probably want to prevent. The global mode has been deprecated in version 3.0.0, with the reason being:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;(&amp;hellip;) the implementation wasn’t great and was causing us a lot of trouble with unexpected behavior.&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id=&#34;the-solution&#34;&gt;The solution&lt;/h2&gt;
+&lt;p&gt;So how would you fix this? Well the way we have decided to do it is to use libcluster as well. So start by adding Quantum and Libcluster to you &lt;code&gt;mix.exs&lt;/code&gt;:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;{:quantum, &amp;#34;~&amp;gt; 3.0&amp;#34;},
+{:libcluster, &amp;#34;~&amp;gt; 3.0&amp;#34;}
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;setting-up-libcluster&#34;&gt;Setting up libcluster&lt;/h2&gt;
+&lt;p&gt;Now what libcluster allows you to do is manage your Kubernetes nodes from Erlang. Essentially what we are going to do is register a headless template which will help k8s to find your pods by using DNS lookups. A config might look like this:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;# Clustering config
+if is_binary(System.get_env(&amp;#34;KUBERNETES_SERVICE_HOST&amp;#34;)) do
+  config :your_app,
+    libcluster: [
+      kubernetes: [
+        strategy: Elixir.Cluster.Strategy.Kubernetes.DNS,
+        config: [
+          service: &amp;#34;your-app-headless&amp;#34;,
+          application_name: &amp;#34;your-app&amp;#34;,
+          polling_interval: 10_000
+        ]
+      ]
+    ]
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;where we can see we use a headless service again to discover all our pods through our DNS server. This will help us when we register our supervisor. Create a new supervisor module called SchedulerSupervisor and add the following to it:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;@moduledoc &amp;#34;&amp;#34;&amp;#34;
+Responsible for starting the scheduled job on a single node
+&amp;#34;&amp;#34;&amp;#34;
+
+use Supervisor
+
+def start_link(quantum, opts) do
+    case :global.whereis_name(__MODULE__) do
+      :undefined -&amp;gt;
+        with {:error, {:already_started, pid}} &amp;lt;- do_start_link(quantum, opts) do
+          Process.link(pid)
+          {:ok, pid}
+        end
+
+      pid -&amp;gt;
+        Process.link(pid)
+        {:ok, pid}
+    end
+  end
+
+  defp do_start_link(quantum, opts) do
+    Supervisor.start_link(__MODULE__, {quantum, opts}, name: {:global, __MODULE__})
+  end
+
+  def init(state) do
+    :global.re_register_name(__MODULE__, self(), &amp;amp;resolve_global_conflict/3)
+    Quantum.Supervisor.init(state)
+  end
+
+  defp resolve_global_conflict(_name, pid_to_keep, pid_to_kill) do
+    Supervisor.stop(pid_to_kill)
+    pid_to_keep
+  end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;this will ensure our supervisor is started only once across all zones. When we init we use the &lt;code&gt;re_register_name&lt;/code&gt; erlang function (&lt;a href=&#34;https://www.erlang.org/docs/21/man/global#re_register_name-3&#34;&gt;Documentation&lt;/a&gt;) and we pass in a function to resolve when it is already registered. This function is our &lt;code&gt;resolve_global_conflict&lt;/code&gt; function which kills the duplicate supervisor and keeps the current one alive, and passes the process id back so we can use and link it.&lt;/p&gt;
+&lt;h2 id=&#34;integrating-quantum&#34;&gt;Integrating Quantum&lt;/h2&gt;
+&lt;p&gt;The last thing we need to do is add Quantum into the &lt;code&gt;mix&lt;/code&gt; (get it?) by creating a new scheduler module. This could look something like this:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;defmodule Scheduler do
+  @moduledoc false
+  // the supervisor module is the module we created above
+  use Quantum, otp_app: :your_app, supervisor_module: SchedulerSupervisor 
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;as you can see here we can define a supervisor_module option in our macro which will be used by the &lt;code&gt;start_link&lt;/code&gt; function for the Quantum job, usually this is a default quantum supervisor. This can also be passed in the &lt;code&gt;application.ex&lt;/code&gt; of your app but this is a much neater solution in my opinion.&lt;/p&gt;
+&lt;h2 id=&#34;adding-it-to-the-application-on-start&#34;&gt;Adding it to the application on start&lt;/h2&gt;
+&lt;p&gt;And let&amp;rsquo;s not forget to add it to the &lt;code&gt;application.ex&lt;/code&gt; under your children:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;@impl true
+def start(_type, _args) do
+  children = supervisor_libcluster() ++ [Scheduler]
+
+  opts = [strategy: :one_for_one]
+  Supervisor.start_link(children, opts)
+end
+
+defp supervisor_libcluster do
+  config = Application.get_env(:your_app, :libcluster)
+
+  if config do
+    [{Cluster.Supervisor, [config, [name: ClusterSupervisor]]}]
+  else
+    []
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;And there we have it! Now the job only runs once even tough we have multiple pods running!&lt;/p&gt;
+&lt;h2 id=&#34;further-reading&#34;&gt;Further reading:&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://hexdocs.pm/libcluster/Cluster.Strategy.Kubernetes.DNS.html&#34;&gt;https://hexdocs.pm/libcluster/Cluster.Strategy.Kubernetes.DNS.html&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://elixirforum.com/t/running-quantum-job-from-single-node/33611&#34;&gt;https://elixirforum.com/t/running-quantum-job-from-single-node/33611&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://hexdocs.pm/quantum/run-strategies.html&#34;&gt;https://hexdocs.pm/quantum/run-strategies.html&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/h4cc/quantum-elixir&#34;&gt;https://github.com/h4cc/quantum-elixir&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/bitwalker/libcluster&#34;&gt;https://github.com/bitwalker/libcluster&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>Dragonhoard Release</title>
+      <link>http://localhost:1313/posts/dragonhoard-release-1-2-4/</link>
+      <pubDate>Wed, 02 Oct 2024 18:53:20 +0200</pubDate>
+      
+      <guid>http://localhost:1313/posts/dragonhoard-release-1-2-4/</guid>
+      <description>&lt;p&gt;Dragonhoard just had an exciting new update, version 1.2.4 released today. The main selling point of the release is that it now supports mobile and adds PWA support. In this blog post I&amp;rsquo;ll share a little bit of my experience creating Dragonhoard.&lt;/p&gt;
+&lt;h2 id=&#34;coming-up-with-the-premise&#34;&gt;Coming up with the premise&lt;/h2&gt;
+&lt;p&gt;The premise of Dragonhoard is simple, an anarchic inventory management system where everyone has equal rights. Every item has an owner which can be transfered and a holder which is currently in posession of the item. I came up with the premise in a Dungeons and Dragons session, we have a group all with their own campaigns and sometimes we do oneshots.&lt;/p&gt;
+&lt;p&gt;To be more cost effective we share a lot of resources like minis, mats and terrain. To manage this properly I created dragonhoard, since here we can request items from the holder to bring it back or give it to someone else. Of course this can be used for any kind of item.&lt;/p&gt;
+&lt;h2 id=&#34;the-tech-stack&#34;&gt;The tech stack&lt;/h2&gt;
+&lt;p&gt;Dragonhoard was built in Elixir with Phoenix liveview. The source code is available in Github and available to everyone. It is then hosted on Fly.io, and you could run your own instance if you want.&lt;/p&gt;
+&lt;h2 id=&#34;making-a-pwa&#34;&gt;Making a PWA&lt;/h2&gt;
+&lt;p&gt;Making a PWA from a Phoenix Liveview application is relatively easy, all you need to do is create the manifest.json file detailed in many other blogs, let&amp;rsquo;s focus on Phoenix Liveview for now. The most important thing is to put the manifest.json in your assets folder, and then add it as a static path.&lt;/p&gt;
+&lt;p&gt;Open up the file &lt;code&gt;lib/your_app_web.ex&lt;/code&gt;, the web file, and add the manifest.json to the static paths, like so:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;def static_paths, do: ~w(assets fonts images favicon.ico robots.txt manifest.json)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;And there you go, your manifest is now static and is loaded in for your web application, but don&amp;rsquo;t forget to add it as a link in the &lt;code&gt;root.html.heex&lt;/code&gt; file in the head, like this:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;&amp;lt;link phx-track-static rel=&amp;#34;manifest&amp;#34; href=&amp;#34;/manifest.json&amp;#34; /&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;And there you have it, a loaded manifest in your Phoenix Liveview application, which just made sure the app is loaded as a PWA.&lt;/p&gt;
+</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>Compressing images in Elixir with Mogrify</title>
+      <link>http://localhost:1313/posts/compress_images_with_mogrify/</link>
+      <pubDate>Wed, 14 Feb 2024 19:57:24 +0100</pubDate>
+      
+      <guid>http://localhost:1313/posts/compress_images_with_mogrify/</guid>
+      <description>&lt;p&gt;Images can be tough to manage, and should often be uploaded unto expensive servers like AWS or Minio. This works great but you really don&amp;rsquo;t want a 2mb image for a small 10px wide thumbnail. To drastically reduce image size you can use the Mogrify package, but it can be a little tricky to set up. Let&amp;rsquo;s do it together.&lt;/p&gt;
+&lt;h1 id=&#34;installing-the-dependency&#34;&gt;Installing the dependency&lt;/h1&gt;
+&lt;p&gt;Add the following to your &lt;code&gt;mix.exs&lt;/code&gt; file:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;{:mogrify, &amp;#34;~&amp;gt; 0.9.3&amp;#34;}
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Then make sure you have imagemagick installed, since the package depends on it, this can be done by executing the following command:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;sudo apt get install imagemagick
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;If you want to install it into a docker image you plan on deploying on kubernetes for instance, you can always add the following to your docker file:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;RUN apt-get update -y &amp;amp;&amp;amp; apt-get install -y imagemagick
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&#34;using-the-dependency&#34;&gt;Using the dependency&lt;/h1&gt;
+&lt;p&gt;With that out of the way, I&amp;rsquo;ll show you how I implemented it into my &lt;code&gt;Uploader.ex&lt;/code&gt; module which sends the file to an S3 compatible asset store:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;defmodule Uploader do
+  @moduledoc false
+
+  import Mogrify
+
+  def do_upload(image_path, s3_path, convert_function \\ &amp;amp;compress/1) do
+    converted_image = convert_function.(image_path)
+    image = File.read!(converted_image.path)
+
+    &amp;#34;your_bucket&amp;#34;
+    |&amp;gt; ExAws.S3.put_object(s3_path, image, acl: :public_read)
+    |&amp;gt; ExAws.request()
+
+    {:postpone, &amp;#34;https://your_bucket.ams3.digitaloceanspaces.com/#{s3_path}&amp;#34;}
+  end
+
+  def to_thumbnail(image_path) do
+    open(image_path)
+    |&amp;gt; resize_to_limit(&amp;#34;256x256&amp;#34;)
+    |&amp;gt; save
+  end
+
+  def compress(image_path) do
+    open(image_path)
+    |&amp;gt; resize_to_limit(&amp;#34;1024x768&amp;#34;)
+    |&amp;gt; save
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;This uploader takes the image, converts it into a smaller limit, dependent on what needs to happen. I have some default compression on all images, and special compression to thumbnails, which can be much smaller. This has saved me about 95% storage space on a 2mb pexels image, resulting in only a 100kb file. The nice thing about &lt;code&gt;Mogrify&lt;/code&gt; is the flexibility that comes with it, this fills up an image until either axis hits the desired target, but keeps the ratio. Perfect for a social media for example.&lt;/p&gt;
+&lt;h1 id=&#34;further-reading&#34;&gt;Further reading:&lt;/h1&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/phoenix-with-do-spaces/&#34; title=&#34;Phoenix with Digital Ocean spaces&#34;&gt;Phoenix with Digital Ocean spaces&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://hexdocs.pm/mogrify/&#34;&gt;https://hexdocs.pm/mogrify/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://imagemagick.org/index.php&#34;&gt;https://imagemagick.org/index.php&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>Phoenix With Digital Ocean Spaces</title>
+      <link>http://localhost:1313/posts/phoenix-with-do-spaces/</link>
+      <pubDate>Sun, 28 Jan 2024 14:02:48 +0100</pubDate>
+      
+      <guid>http://localhost:1313/posts/phoenix-with-do-spaces/</guid>
+      <description>&lt;p&gt;Using aws as object storage works pretty well for most cases, but it can be expensive and very complex to set up. That is why for personal projects I prefer using DigitalOcean&amp;rsquo;s spaces. They are cheap to operate and easy to manage, and what is important for us is that it is S3 compatible.&lt;/p&gt;
+&lt;h1 id=&#34;the-goal&#34;&gt;The goal&lt;/h1&gt;
+&lt;p&gt;In this blog post I want to create a new basic file upload using the new phoenix liveview &lt;code&gt;live_file_upload&lt;/code&gt;. These files will then be uploaded to the spaces and the url will be saved. Something to keep in mind is that using a bucket policy is not supported directly within Digital Ocean, but you can set a policy via &lt;code&gt;s3cmd&lt;/code&gt;. This will be out of scope, as is compressing images for upload, but I might revisit that in the future.&lt;/p&gt;
+&lt;h1 id=&#34;setting-up-the-environment&#34;&gt;Setting up the environment&lt;/h1&gt;
+&lt;p&gt;I assume you have your access key and secret access key. Create a file and call it &lt;code&gt;.env&lt;/code&gt;, it should look like this:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;#!/usr/bin/env zsh
+
+export AWS_ACCESS_KEY_ID={YOUR ACCESS KEY ID}
+export AWS_SECRET_ACCESS_KEY={YOUR SECRET ACCESS KEY}
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;We will be using ExAws for this project, so import it in your &lt;code&gt;mix.exs&lt;/code&gt; file:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;{:ex_aws, &amp;#34;~&amp;gt; 2.1&amp;#34;},
+{:ex_aws_s3, &amp;#34;~&amp;gt; 2.0&amp;#34;},
+{:hackney, &amp;#34;~&amp;gt; 1.15&amp;#34;},
+{:sweet_xml, &amp;#34;~&amp;gt; 0.6&amp;#34;},
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Then we&amp;rsquo;ll have to set our config to use these environment keys. Go to your &lt;code&gt;config.exs&lt;/code&gt;, or if you use phoenix the &lt;code&gt;runtime.exs&lt;/code&gt; and let&amp;rsquo;s configure ExAws. Add the following to the bottom:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;config :ex_aws,
+  debug_requests: true,
+  json_codec: Jason,
+  access_key_id: System.get_env(&amp;#34;AWS_ACCESS_KEY_ID&amp;#34;),
+  secret_access_key: System.get_env(&amp;#34;AWS_SECRET_ACCESS_KEY&amp;#34;)
+
+config :ex_aws, :s3,
+  scheme: &amp;#34;https://&amp;#34;,
+  host: &amp;#34;ams3.digitaloceanspaces.com&amp;#34;,
+  region: &amp;#34;ams3&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Since I am in amsterdam I&amp;rsquo;ll use the ams3 regio, and add it to the host. You can fetch this information from the endpoint url on your Digital Ocean space. We have not yet provided a bucket since often you&amp;rsquo;ll want to use multiple buckets in a project, but you could set one up here.&lt;/p&gt;
+&lt;h1 id=&#34;creating-the-phoenix-app&#34;&gt;Creating the phoenix app&lt;/h1&gt;
+&lt;p&gt;Some prerequisites for this part, you&amp;rsquo;ll have to make sure you have somewhere to store the file url, like a string on a table. I&amp;rsquo;ll be using the &lt;code&gt;user&lt;/code&gt; table for this, with an &lt;code&gt;avatar&lt;/code&gt; field.&lt;/p&gt;
+&lt;h2 id=&#34;the-liveview&#34;&gt;The liveview&lt;/h2&gt;
+&lt;p&gt;In your phoenix app, create a new liveview. We&amp;rsquo;ll start with a simple render function:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;def render(assigns) do
+  ~H&amp;#34;&amp;#34;&amp;#34;
+  &amp;lt;.simple_form for={@avatar_form} phx-submit=&amp;#34;update_avatar&amp;#34; phx-change=&amp;#34;validate_avatar&amp;#34;&amp;gt;
+    &amp;lt;%= for entry &amp;lt;- @uploads.avatar.entries do %&amp;gt;
+      &amp;lt;.live_img_preview entry={entry} /&amp;gt;
+    &amp;lt;% end %&amp;gt;
+
+    &amp;lt;.live_file_input upload={@uploads.avatar}&amp;gt;
+
+    &amp;lt;:actions&amp;gt;
+      &amp;lt;.button phx-disable-with=&amp;#34;Changing...&amp;#34;&amp;gt;Change Avatar&amp;lt;/.button&amp;gt;
+    &amp;lt;/:actions&amp;gt;
+  &amp;lt;/.simple_form
+  &amp;#34;&amp;#34;&amp;#34;
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;This renders a form with a file input for the users avatar. There are some interesting things at play here, first is the simple_form which takes in the avatar form we will define in the mount. Then it has a submit and a validate, the validate is important because otherwise it will not work. Furthermore there is a for loop which shows previews of the uploaded files, and finally we have the file input which takes in the uploads. If you run this it will fail because in the mount we still have to allow files to be uploaded.&lt;/p&gt;
+&lt;h2 id=&#34;the-mount-function&#34;&gt;The mount function&lt;/h2&gt;
+&lt;p&gt;I won&amp;rsquo;t go into detail over changesets and how to store things in the database, but we need a changeset for the form, which will be our user, and we will only cast the avatar url in this changeset to update. This means it will look a little like:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;def mount(_, _, socket) do
+  avatar_changeset = Accounts.change_user_avatar(user)
+
+  socket =
+    socket
+    |&amp;gt; assign(:avatar_form, to_form(avatar_changeset))
+    |&amp;gt; allow_upload(:avatar,
+      accept: ~w(.jpg .jpeg .png),
+      max_entries: 1
+    )
+
+  {:ok, socket}
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Let me explain a little, we allow get the changeset, assign it to the avatar form, and allow the upload of the avatar, this will also give us access to the &lt;code&gt;@uploads&lt;/code&gt; key in the assign. We set the max entries at a time to 1 and only accept a few image types.&lt;/p&gt;
+&lt;h2 id=&#34;validating&#34;&gt;Validating&lt;/h2&gt;
+&lt;p&gt;Validating is the easiest part, since this will just return the socket. It is still important to have this function, but you could do checks in here if necessary.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;def handle_event(&amp;#34;validate_avatar&amp;#34;, _, socket) do
+  {:noreply, socket}
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;saving-the-object&#34;&gt;Saving the object&lt;/h2&gt;
+&lt;p&gt;Now for the fun part, saving the object and uploading it. This will be done in the &lt;code&gt;save_avatar&lt;/code&gt; event. So our code will look something like this to save it:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;def handle_event(&amp;#34;update_avatar&amp;#34;, _, socket) do
+  %{current_user: user} = socket.assigns
+
+  case Accounts.update_user_avatar(user, %{&amp;#34;avatar_path&amp;#34; =&amp;gt; List.first(consume_files(socket))}) do
+    {:ok, _user} -&amp;gt;
+      socket =
+        socket
+        |&amp;gt; put_flash(:info, &amp;#34;Succesfully updated avatar&amp;#34;)
+        |&amp;gt; push_navigate(to: ~p&amp;#34;/&amp;#34;)
+
+    {:noreply, socket}
+
+    {:error, _changeset} -&amp;gt;
+      {:noreply, put_flash(socket, :error, &amp;#34;Something went wrong updating your avatar&amp;#34;)}
+  end
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Above you can see that we update the user avatar with the first item from the &lt;code&gt;consume_files&lt;/code&gt; function. This &lt;code&gt;consume_files&lt;/code&gt; option function will do the actual uploading and returns the public url, and stores it. Let&amp;rsquo;s define the &lt;code&gt;consume_files&lt;/code&gt; function:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;defp consume_files(socket) do
+  consume_uploaded_entries(socket, :avatar, fn %{path: path}, %{uuid: uuid} -&amp;gt;
+    image = File.read!(path)
+
+    &amp;#34;your_bucket&amp;#34;
+    |&amp;gt; ExAws.S3.put_object(&amp;#34;avatars/avatar-#{uuid}.jpg&amp;#34;, image, acl: :public_read)
+    |&amp;gt; ExAws.request()
+
+    {:postpone, &amp;#34;https://your_bucket.ams3.digitaloceanspaces.com/#{s3_path}&amp;#34;}
+  end)
+end
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;I&amp;rsquo;ve done the &lt;code&gt;acl: :public_read&lt;/code&gt; to make sure the files are publicly available to show via the URL. The file is stored in a temp path until you consume the entry, which we&amp;rsquo;ll read and upload to our space, in the given bucket. Now your image is uploaded in your Digital Ocean Space and the URL stored in your object, you can now use the image wherever you want in your application. This can be any file of course.&lt;/p&gt;
+</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>Parsing options in Elixir</title>
+      <link>http://localhost:1313/posts/options-parsing-elixir/</link>
+      <pubDate>Fri, 29 Dec 2023 12:18:16 +0100</pubDate>
+      
+      <guid>http://localhost:1313/posts/options-parsing-elixir/</guid>
+      <description>&lt;p&gt;Options are often done in a keyword list in Elixir. The problem with this is that keyword lists are order-bound. This means that pattern matching is going to be hard the first time, and it is a problem I had when creating MapGrid.&lt;/p&gt;
+&lt;p&gt;You may expect the pattern to match when you try the following:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;defp work(async: true, should_run: true), do: async_work()
+defp work(async: false, should_run: true), do: sync_work()
+defp work(_), do: :ok
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Then you try to run the command:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;work(should_run: true, async: false)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;But this &lt;strong&gt;will not&lt;/strong&gt; match, since it is order dependent and you want to match on multiple options or an arbitrary amount of options it will fail to match.&lt;/p&gt;
+&lt;p&gt;Here is the way I solved it, it is not the perfect solution, and might not be the only one out there, but I think it makes for an elegant flow which is easily understandable and extendable.&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;defp work(opts) do
+    opts_map = Enum.into(opts, %{})
+    do_work(opts_map)
+end
+
+defp do_work(%{async: true, should_run: true}), do: async_work()
+defp do_work(%{async: false, should_run: true}), do: sync_work()
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Now when running the following code it will work:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;work(should_run: true, async: false)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;This is because keyword lists are order dependent, and maps are not. So when we call the Enum.into function we basically convert it into a map we can easily match on. In my opinion this is a much neater solution than having a list of if-statements to control the flow.&lt;/p&gt;
+&lt;p&gt;It is also used in the MapGrid code, with multiple optionable features which can be toggled (the options are converted into a map first):&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;  defp apply_options(item, options) do
+    item
+    |&amp;gt; apply_function(options)
+    |&amp;gt; reduce_to_keys(options)
+  end
+
+  defp apply_function(item, %{item_function: function}), do: function.(item)
+  defp apply_function(item, _), do: item
+
+  defp reduce_to_keys(item, %{keys: keys}) do
+    Enum.reduce(keys, [], &amp;amp;[{&amp;amp;1, Map.get(item, &amp;amp;1)} | &amp;amp;2])
+  end
+
+  defp reduce_to_keys(item, _), do: item
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Here it will always return the item and I can easily add more functions like this to the pipeline in apply_options. If you think there are other better ways to handle options please let me know.&lt;/p&gt;
+</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>Configuring the tab-line in Emacs</title>
+      <link>http://localhost:1313/posts/tab-line-config/</link>
+      <pubDate>Tue, 26 Dec 2023 13:04:07 +0100</pubDate>
+      
+      <guid>http://localhost:1313/posts/tab-line-config/</guid>
+      <description>&lt;p&gt;When you use a different editor than Emacs you might get used to some creature comforts, like for instance being able to have tabs open. Emacs uses buffers where you can switch between them using &lt;code&gt;C-x b&lt;/code&gt; to open a searchable list containing all your buffers, and that&amp;rsquo;s how you switch tabs. This is not neccesary however and there are more modern ways of attacking this problem.&lt;/p&gt;
+&lt;h1 id=&#34;what-is-the-tab-line&#34;&gt;What is the tab-line?&lt;/h1&gt;
+&lt;p&gt;Put simply, the &lt;code&gt;tab-line-mode&lt;/code&gt; allows you to switch your buffer within a window. You get working tabs like you would expect a web browser to have. If you open a new buffer in your window, it gets added to the &lt;code&gt;tab-line&lt;/code&gt;. &lt;strong&gt;Note:&lt;/strong&gt; The tab line will not include all your buffers, and you can close them as you please. The state of each tab-line is stored in the window.&lt;/p&gt;
+&lt;h1 id=&#34;configuring-the-tab-line-to-automatically-start&#34;&gt;Configuring the tab-line to automatically start&lt;/h1&gt;
+&lt;p&gt;The command &lt;code&gt;global-tab-line&lt;/code&gt; toggles the &lt;code&gt;tab-line&lt;/code&gt; on every buffer you have open or will open. So we want to call this command to the config:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;(global-tab-line-mode t)
+(setq tab-line-new-button-show nil)  ;; do not show add-new button
+(setq tab-line-close-button-show nil)  ;; do not show close button
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;I prefer not having the buttons, since we automatically add new tabs when we open a file and you can close it with middle mouse button.&lt;/p&gt;
+&lt;h1 id=&#34;styling-the-tab-line&#34;&gt;Styling the tab-line&lt;/h1&gt;
+&lt;p&gt;We can style the tab in the config using the &lt;code&gt;set-face-attribute&lt;/code&gt; command in the config. You can read more about face attributes &lt;a href=&#34;https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html&#34;&gt;here&lt;/a&gt;. I am going to style it like the Monokai pro theme which I personally use. Here is a sample:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;(set-face-attribute &amp;#39;tab-line nil ;; background behind tabs
+      :background &amp;#34;#1e1e1e&amp;#34;
+      :foreground &amp;#34;gray60&amp;#34; :distant-foreground &amp;#34;gray50&amp;#34;
+      :height 1.1 :box nil)
+(set-face-attribute &amp;#39;tab-line-tab nil ;; active tab in another window
+      :inherit &amp;#39;tab-line
+      :foreground &amp;#34;gray80&amp;#34; :background &amp;#34;#2e2e2e&amp;#34; :box nil)
+(set-face-attribute &amp;#39;tab-line-tab-current nil ;; active tab in current window
+      :background &amp;#34;#b05279&amp;#34; :foreground &amp;#34;white&amp;#34; :box nil)
+(set-face-attribute &amp;#39;tab-line-tab-inactive nil ;; inactive tab
+      :background &amp;#34;#2e2e2e&amp;#34; :foreground &amp;#34;black&amp;#34; :box nil)
+(set-face-attribute &amp;#39;tab-line-highlight nil ;; mouseover
+      :background &amp;#34;white&amp;#34; :foreground &amp;#39;unspecified)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;For now, I am pretty happy with how it looks, using the Monokai colors.&lt;/p&gt;
+&lt;h1 id=&#34;further-reading&#34;&gt;Further reading&lt;/h1&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://www.gnu.org/software/emacs/manual/html_node/emacs/Tab-Line.html&#34;&gt;https://www.gnu.org/software/emacs/manual/html_node/emacs/Tab-Line.html&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html&#34;&gt;https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://amitp.blogspot.com/2020/06/emacs-prettier-tab-line.html&#34;&gt;https://amitp.blogspot.com/2020/06/emacs-prettier-tab-line.html&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://andreyor.st/posts/2020-05-10-making-emacs-tabs-look-like-in-atom/&#34;&gt;https://andreyor.st/posts/2020-05-10-making-emacs-tabs-look-like-in-atom/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    
+    
+    
+    
+    
+    
+  </channel>
+</rss>

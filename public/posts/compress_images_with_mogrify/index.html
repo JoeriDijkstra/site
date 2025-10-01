@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Personal website">
+    
+    <link rel="shortcut icon" href="http://localhost:1313/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <link rel="canonical" href="http://localhost:1313/posts/compress_images_with_mogrify/" />
+    <title>Compressing images in Elixir with Mogrify</title>
+</head>
+<body><header id="banner">
+    <h2><a href="http://localhost:1313/">Joeri Dijkstra</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/about/" title="about">about</a>
+            </li><li>
+                <a href="/projects/" title="projects">projects</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>Compressing images in Elixir with Mogrify</h1>
+        <div>
+                <time>February 14, 2024</time>
+            </div>
+    </header><p>Images can be tough to manage, and should often be uploaded unto expensive servers like AWS or Minio. This works great but you really don&rsquo;t want a 2mb image for a small 10px wide thumbnail. To drastically reduce image size you can use the Mogrify package, but it can be a little tricky to set up. Let&rsquo;s do it together.</p>
+<h1 id="installing-the-dependency">Installing the dependency</h1>
+<p>Add the following to your <code>mix.exs</code> file:</p>
+<pre tabindex="0"><code>{:mogrify, &#34;~&gt; 0.9.3&#34;}
+</code></pre><p>Then make sure you have imagemagick installed, since the package depends on it, this can be done by executing the following command:</p>
+<pre tabindex="0"><code>sudo apt get install imagemagick
+</code></pre><p>If you want to install it into a docker image you plan on deploying on kubernetes for instance, you can always add the following to your docker file:</p>
+<pre tabindex="0"><code>RUN apt-get update -y &amp;&amp; apt-get install -y imagemagick
+</code></pre><h1 id="using-the-dependency">Using the dependency</h1>
+<p>With that out of the way, I&rsquo;ll show you how I implemented it into my <code>Uploader.ex</code> module which sends the file to an S3 compatible asset store:</p>
+<pre tabindex="0"><code>defmodule Uploader do
+  @moduledoc false
+
+  import Mogrify
+
+  def do_upload(image_path, s3_path, convert_function \\ &amp;compress/1) do
+    converted_image = convert_function.(image_path)
+    image = File.read!(converted_image.path)
+
+    &#34;your_bucket&#34;
+    |&gt; ExAws.S3.put_object(s3_path, image, acl: :public_read)
+    |&gt; ExAws.request()
+
+    {:postpone, &#34;https://your_bucket.ams3.digitaloceanspaces.com/#{s3_path}&#34;}
+  end
+
+  def to_thumbnail(image_path) do
+    open(image_path)
+    |&gt; resize_to_limit(&#34;256x256&#34;)
+    |&gt; save
+  end
+
+  def compress(image_path) do
+    open(image_path)
+    |&gt; resize_to_limit(&#34;1024x768&#34;)
+    |&gt; save
+  end
+end
+</code></pre><p>This uploader takes the image, converts it into a smaller limit, dependent on what needs to happen. I have some default compression on all images, and special compression to thumbnails, which can be much smaller. This has saved me about 95% storage space on a 2mb pexels image, resulting in only a 100kb file. The nice thing about <code>Mogrify</code> is the flexibility that comes with it, this fills up an image until either axis hits the desired target, but keeps the ratio. Perfect for a social media for example.</p>
+<h1 id="further-reading">Further reading:</h1>
+<ul>
+<li><a href="http://localhost:1313/posts/phoenix-with-do-spaces/" title="Phoenix with Digital Ocean spaces">Phoenix with Digital Ocean spaces</a></li>
+<li><a href="https://hexdocs.pm/mogrify/">https://hexdocs.pm/mogrify/</a></li>
+<li><a href="https://imagemagick.org/index.php">https://imagemagick.org/index.php</a></li>
+</ul>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2025 Joeri Dijkstra
+</footer>
+</body>
+</html>

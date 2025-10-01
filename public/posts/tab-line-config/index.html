@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Personal website">
+    
+    <link rel="shortcut icon" href="http://localhost:1313/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <link rel="canonical" href="http://localhost:1313/posts/tab-line-config/" />
+    <title>Configuring the tab-line in Emacs</title>
+</head>
+<body><header id="banner">
+    <h2><a href="http://localhost:1313/">Joeri Dijkstra</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/about/" title="about">about</a>
+            </li><li>
+                <a href="/projects/" title="projects">projects</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>Configuring the tab-line in Emacs</h1>
+        <div>
+                <time>December 26, 2023</time>
+            </div>
+    </header><p>When you use a different editor than Emacs you might get used to some creature comforts, like for instance being able to have tabs open. Emacs uses buffers where you can switch between them using <code>C-x b</code> to open a searchable list containing all your buffers, and that&rsquo;s how you switch tabs. This is not neccesary however and there are more modern ways of attacking this problem.</p>
+<h1 id="what-is-the-tab-line">What is the tab-line?</h1>
+<p>Put simply, the <code>tab-line-mode</code> allows you to switch your buffer within a window. You get working tabs like you would expect a web browser to have. If you open a new buffer in your window, it gets added to the <code>tab-line</code>. <strong>Note:</strong> The tab line will not include all your buffers, and you can close them as you please. The state of each tab-line is stored in the window.</p>
+<h1 id="configuring-the-tab-line-to-automatically-start">Configuring the tab-line to automatically start</h1>
+<p>The command <code>global-tab-line</code> toggles the <code>tab-line</code> on every buffer you have open or will open. So we want to call this command to the config:</p>
+<pre tabindex="0"><code>(global-tab-line-mode t)
+(setq tab-line-new-button-show nil)  ;; do not show add-new button
+(setq tab-line-close-button-show nil)  ;; do not show close button
+</code></pre><p>I prefer not having the buttons, since we automatically add new tabs when we open a file and you can close it with middle mouse button.</p>
+<h1 id="styling-the-tab-line">Styling the tab-line</h1>
+<p>We can style the tab in the config using the <code>set-face-attribute</code> command in the config. You can read more about face attributes <a href="https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html">here</a>. I am going to style it like the Monokai pro theme which I personally use. Here is a sample:</p>
+<pre tabindex="0"><code>(set-face-attribute &#39;tab-line nil ;; background behind tabs
+      :background &#34;#1e1e1e&#34;
+      :foreground &#34;gray60&#34; :distant-foreground &#34;gray50&#34;
+      :height 1.1 :box nil)
+(set-face-attribute &#39;tab-line-tab nil ;; active tab in another window
+      :inherit &#39;tab-line
+      :foreground &#34;gray80&#34; :background &#34;#2e2e2e&#34; :box nil)
+(set-face-attribute &#39;tab-line-tab-current nil ;; active tab in current window
+      :background &#34;#b05279&#34; :foreground &#34;white&#34; :box nil)
+(set-face-attribute &#39;tab-line-tab-inactive nil ;; inactive tab
+      :background &#34;#2e2e2e&#34; :foreground &#34;black&#34; :box nil)
+(set-face-attribute &#39;tab-line-highlight nil ;; mouseover
+      :background &#34;white&#34; :foreground &#39;unspecified)
+</code></pre><p>For now, I am pretty happy with how it looks, using the Monokai colors.</p>
+<h1 id="further-reading">Further reading</h1>
+<ul>
+<li><a href="https://www.gnu.org/software/emacs/manual/html_node/emacs/Tab-Line.html">https://www.gnu.org/software/emacs/manual/html_node/emacs/Tab-Line.html</a></li>
+<li><a href="https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html">https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html</a></li>
+<li><a href="https://amitp.blogspot.com/2020/06/emacs-prettier-tab-line.html">https://amitp.blogspot.com/2020/06/emacs-prettier-tab-line.html</a></li>
+<li><a href="https://andreyor.st/posts/2020-05-10-making-emacs-tabs-look-like-in-atom/">https://andreyor.st/posts/2020-05-10-making-emacs-tabs-look-like-in-atom/</a></li>
+</ul>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2025 Joeri Dijkstra
+</footer>
+</body>
+</html>

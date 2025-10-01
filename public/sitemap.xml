@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>http://localhost:1313/</loc>
+    <lastmod>2025-02-15T12:57:10+01:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/</loc>
+    <lastmod>2025-02-15T12:57:10+01:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/libcluster-quantum/</loc>
+    <lastmod>2025-02-15T12:57:10+01:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/dragonhoard-release-1-2-4/</loc>
+    <lastmod>2024-10-02T18:53:20+02:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/compress_images_with_mogrify/</loc>
+    <lastmod>2024-02-14T19:57:24+01:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/phoenix-with-do-spaces/</loc>
+    <lastmod>2024-01-28T14:02:48+01:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/options-parsing-elixir/</loc>
+    <lastmod>2023-12-29T12:18:16+01:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/tab-line-config/</loc>
+    <lastmod>2023-12-26T13:04:07+01:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/about/</loc>
+  </url><url>
+    <loc>http://localhost:1313/categories/</loc>
+  </url><url>
+    <loc>http://localhost:1313/projects/</loc>
+  </url><url>
+    <loc>http://localhost:1313/tags/</loc>
+  </url>
+</urlset>
