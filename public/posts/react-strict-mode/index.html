@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Personal website">
+    
+    <link rel="shortcut icon" href="http://localhost:1313/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <link rel="canonical" href="http://localhost:1313/posts/react-strict-mode/" />
+    <title>Double render in React</title>
+</head>
+<body><header id="banner">
+    <h2><a href="http://localhost:1313/">Joeri Dijkstra</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/about/" title="about">about</a>
+            </li><li>
+                <a href="/projects/" title="projects">projects</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>Double render in React</h1>
+        <div>
+                <time>October 17, 2025</time>
+            </div>
+    </header><p>Ever have the annoying bug that your component gets rendered twice even though you are sure it shouldn&rsquo;t? Messing around with setting flags to try and only have it run once? Are you getting janky animations on development but not on production?</p>
+<p>Well me too, and apparently the issue is very simple. There is a bug in the strict mode.</p>
+<pre tabindex="0"><code>&lt;StrictMode&gt;
+  &lt;App /&gt;
+&lt;/StrictMode&gt;
+</code></pre><p>And you <em>can</em> just comment out the <code>&lt;/StrictMode&gt;</code>.</p>
+<p>Although this is not something I recommend. Unfortunately I have not yet found a way to solve the problem with strict mode on. for now I have just learned to live with it and sometimes disable it for a demo or when I want to double check if something is working or I do have a mistake in the rerendering.</p>
+<p>Not the most helpful article, but now at least you know.</p>
+<p>Cheers!</p>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2025 Joeri Dijkstra
+</footer>
+</body>
+</html>

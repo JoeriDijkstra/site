@@ -34,7 +34,8 @@
 <h2 id="the-issue">The issue</h2>
 <p>There is one problem though, and that is when using multiple pods of a service running quantum, executing the jobs multiple times as well. This is something you would probably want to prevent. The global mode has been deprecated in version 3.0.0, with the reason being:</p>
 <blockquote>
-<p>(&hellip;) the implementation wasn’t great and was causing us a lot of trouble with unexpected behavior.</p></blockquote>
+<p>(&hellip;) the implementation wasn’t great and was causing us a lot of trouble with unexpected behavior.</p>
+</blockquote>
 <h2 id="the-solution">The solution</h2>
 <p>So how would you fix this? Well the way we have decided to do it is to use libcluster as well. So start by adding Quantum and Libcluster to you <code>mix.exs</code>:</p>
 <pre tabindex="0"><code>{:quantum, &#34;~&gt; 3.0&#34;},
