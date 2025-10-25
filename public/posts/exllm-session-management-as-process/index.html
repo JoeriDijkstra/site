@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Personal website">
+    
+    <link rel="shortcut icon" href="http://localhost:1313/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <link rel="canonical" href="http://localhost:1313/posts/exllm-session-management-as-process/" />
+    <title>ExLLM Session Management as Processes</title>
+</head>
+<body><header id="banner">
+    <h2><a href="http://localhost:1313/">Joeri Dijkstra</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/about/" title="about">about</a>
+            </li><li>
+                <a href="/projects/" title="projects">projects</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>ExLLM Session Management as Processes</h1>
+        <div>
+                <time>October 25, 2025</time>
+            </div>
+    </header><p>When you are chatting with an AI, the session with all the existing messages need to be persisted. When using ExLLM that looks something like the following:</p>
+<pre tabindex="0"><code>session = ExLLM.new_session(:openai, name: &#34;Customer Support&#34;)
+{:ok, {response, session}} = ExLLM.chat_with_session(session, &#34;Hello there!&#34;)
+{:ok, {response2, session}} = ExLLM.chat_with_session(session, &#34;How are you doing?&#34;)
+</code></pre><h2 id="initial-solution">Initial Solution</h2>
+<p>So the session needs to persisted at all times. From the AI provider we get a session ID, but this is ephemeral. Also we can&rsquo;t retrieve the already sent messages from the session ID, so we need to store the whole struct.</p>
+<p>What we really want to do is store it in a process, a GenServer, so that we can reference to it.</p>
+<p>We can then send a request to our service that will contain a session id, and return it so we can feed it back into the next request. We do this for 2 reasons:</p>
+<ol>
+<li>When we first send a request, the session will be nil, and a new one has to be created</li>
+<li>When the process crashes, or the pod is restarted, we get a new session.</li>
+</ol>
+<p>For the 2nd point, we also want to store all the messages in the database so that we can show the history when context runs out and feed the context back into the session when the genserver crashes.</p>
+<p>We need a <a href="https://hexdocs.pm/elixir/1.19.1/GenServer.html">Genserver</a> and not an <a href="https://hexdocs.pm/elixir/1.12.3/Agent.html">Agent</a> because we also want to set a timeout on the genserver that it will destroy the process after some time of inactivity, I chose 2 hours.</p>
+<p>And now this will work great, as long as you have 1 replica of your service running.</p>
+<h2 id="problem-with-kubernetes">Problem with Kubernetes</h2>
+<p>When you have multiple replicas it will be a little hard, because it is not certain where your request comes in. So we don&rsquo;t know for sure the genserver containing the data exists on that pod.</p>
+<p>So what we need, is a global <a href="https://hexdocs.pm/elixir/DynamicSupervisor.html">DynamicSupervisor</a>. We can use <a href="https://hexdocs.pm/horde/readme.html">Horde</a> for this. Start the processes for the session via the <a href="https://hexdocs.pm/horde/Horde.DynamicSupervisor.html">Horde Dynamic Supervisor</a> and now it will work no matter how many replicas you have.</p>
+<h2 id="exllm">ExLLM</h2>
+<p>ExLLM is a great package that is, at the time of writing, in limbo a little bit. <code>Version 1.0.0-rc1</code> has just come out but is not on HexPM yet, so I <a href="https://github.com/bettyblocks/ex_llm">forked the repo</a> and made some fixes. Feel free to use it.</p>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2025 Joeri Dijkstra
+</footer>
+</body>
+</html>

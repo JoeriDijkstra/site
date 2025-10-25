@@ -12,16 +12,32 @@
     
     
     <item>
+      <title>Exllm Session Management as Processes</title>
+      <link>http://localhost:1313/posts/exllm-session-management-as-process/</link>
+      <pubDate>Sat, 25 Oct 2025 10:55:54 +0200</pubDate>
+      
+      <guid>http://localhost:1313/posts/exllm-session-management-as-process/</guid>
+      <description></description>
+    </item>
+    
+    
+    
+    <item>
       <title>Double render in React</title>
       <link>http://localhost:1313/posts/react-strict-mode/</link>
       <pubDate>Fri, 17 Oct 2025 21:12:12 +0200</pubDate>
       
       <guid>http://localhost:1313/posts/react-strict-mode/</guid>
-      <description>&lt;p&gt;Ever have the annoying bug that your component gets rendered twice even though you are sure it shouldn&amp;rsquo;t? Messing around with setting flags to try and only have it run once? Are you getting janky animations on development but not&lt;/p&gt;
+      <description>&lt;p&gt;Ever have the annoying bug that your component gets rendered twice even though you are sure it shouldn&amp;rsquo;t? Messing around with setting flags to try and only have it run once? Are you getting janky animations on development but not on production?&lt;/p&gt;
+&lt;p&gt;Well me too, and apparently the issue is very simple. There is a bug in the strict mode.&lt;/p&gt;
 &lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;&amp;lt;StrictMode&amp;gt;
   &amp;lt;App /&amp;gt;
 &amp;lt;/StrictMode&amp;gt;
-&lt;/code&gt;&lt;/pre&gt;</description>
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;And you &lt;em&gt;can&lt;/em&gt; just comment out the &lt;code&gt;&amp;lt;/StrictMode&amp;gt;&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Although this is not something I recommend. Unfortunately I have not yet found a way to solve the problem with strict mode on. for now I have just learned to live with it and sometimes disable it for a demo or when I want to double check if something is working or I do have a mistake in the rerendering.&lt;/p&gt;
+&lt;p&gt;Not the most helpful article, but now at least you know.&lt;/p&gt;
+&lt;p&gt;Cheers!&lt;/p&gt;
+</description>
     </item>
     
     

@@ -6,9 +6,40 @@
     <description>Recent content on Joeri Dijkstra</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Fri, 17 Oct 2025 21:12:12 +0200</lastBuildDate>
+    <lastBuildDate>Sat, 25 Oct 2025 10:55:54 +0200</lastBuildDate>
     
 	<atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    
+    <item>
+      <title>ExLLM Session Management as Processes</title>
+      <link>http://localhost:1313/posts/exllm-session-management-as-process/</link>
+      <pubDate>Sat, 25 Oct 2025 10:55:54 +0200</pubDate>
+      
+      <guid>http://localhost:1313/posts/exllm-session-management-as-process/</guid>
+      <description>&lt;p&gt;When you are chatting with an AI, the session with all the existing messages need to be persisted. When using ExLLM that looks something like the following:&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;session = ExLLM.new_session(:openai, name: &amp;#34;Customer Support&amp;#34;)
+{:ok, {response, session}} = ExLLM.chat_with_session(session, &amp;#34;Hello there!&amp;#34;)
+{:ok, {response2, session}} = ExLLM.chat_with_session(session, &amp;#34;How are you doing?&amp;#34;)
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;initial-solution&#34;&gt;Initial Solution&lt;/h2&gt;
+&lt;p&gt;So the session needs to persisted at all times. From the AI provider we get a session ID, but this is ephemeral. Also we can&amp;rsquo;t retrieve the already sent messages from the session ID, so we need to store the whole struct.&lt;/p&gt;
+&lt;p&gt;What we really want to do is store it in a process, a GenServer, so that we can reference to it.&lt;/p&gt;
+&lt;p&gt;We can then send a request to our service that will contain a session id, and return it so we can feed it back into the next request. We do this for 2 reasons:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;When we first send a request, the session will be nil, and a new one has to be created&lt;/li&gt;
+&lt;li&gt;When the process crashes, or the pod is restarted, we get a new session.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;For the 2nd point, we also want to store all the messages in the database so that we can show the history when context runs out and feed the context back into the session when the genserver crashes.&lt;/p&gt;
+&lt;p&gt;We need a &lt;a href=&#34;https://hexdocs.pm/elixir/1.19.1/GenServer.html&#34;&gt;Genserver&lt;/a&gt; and not an &lt;a href=&#34;https://hexdocs.pm/elixir/1.12.3/Agent.html&#34;&gt;Agent&lt;/a&gt; because we also want to set a timeout on the genserver that it will destroy the process after some time of inactivity, I chose 2 hours.&lt;/p&gt;
+&lt;p&gt;And now this will work great, as long as you have 1 replica of your service running.&lt;/p&gt;
+&lt;h2 id=&#34;problem-with-kubernetes&#34;&gt;Problem with Kubernetes&lt;/h2&gt;
+&lt;p&gt;When you have multiple replicas it will be a little hard, because it is not certain where your request comes in. So we don&amp;rsquo;t know for sure the genserver containing the data exists on that pod.&lt;/p&gt;
+&lt;p&gt;So what we need, is a global &lt;a href=&#34;https://hexdocs.pm/elixir/DynamicSupervisor.html&#34;&gt;DynamicSupervisor&lt;/a&gt;. We can use &lt;a href=&#34;https://hexdocs.pm/horde/readme.html&#34;&gt;Horde&lt;/a&gt; for this. Start the processes for the session via the &lt;a href=&#34;https://hexdocs.pm/horde/Horde.DynamicSupervisor.html&#34;&gt;Horde Dynamic Supervisor&lt;/a&gt; and now it will work no matter how many replicas you have.&lt;/p&gt;
+&lt;h2 id=&#34;exllm&#34;&gt;ExLLM&lt;/h2&gt;
+&lt;p&gt;ExLLM is a great package that is, at the time of writing, in limbo a little bit. &lt;code&gt;Version 1.0.0-rc1&lt;/code&gt; has just come out but is not on HexPM yet, so I &lt;a href=&#34;https://github.com/bettyblocks/ex_llm&#34;&gt;forked the repo&lt;/a&gt; and made some fixes. Feel free to use it.&lt;/p&gt;
+</description>
+    </item>
     
     
     
